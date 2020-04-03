@@ -402,33 +402,6 @@ namespace GoogleCloudSamples
             return 0;
         }
 
-        static object SyncRecognizeWithCredentials(string filePath, string credentialsFilePath)
-        {
-            GoogleCredential googleCredential;
-            using (Stream m = new FileStream(credentialsFilePath, FileMode.Open))
-            {
-                googleCredential = GoogleCredential.FromStream(m);
-            }
-
-            var channel = new Grpc.Core.Channel(SpeechClient.DefaultEndpoint.Host,
-                googleCredential.ToChannelCredentials());
-            var speech = SpeechClient.Create(channel);
-            var response = speech.Recognize(new RecognitionConfig()
-            {
-                Encoding = RecognitionConfig.Types.AudioEncoding.Linear16,
-                SampleRateHertz = 16000,
-                LanguageCode = "en",
-            }, RecognitionAudio.FromFile(filePath));
-            foreach (var result in response.Results)
-            {
-                foreach (var alternative in result.Alternatives)
-                {
-                    Console.WriteLine(alternative.Transcript);
-                }
-            }
-            return 0;
-        }
-
         // [START speech_transcribe_sync_gcs]
         static object SyncRecognizeGcs(string storageUri)
         {
@@ -555,11 +528,11 @@ namespace GoogleCloudSamples
             // Print responses as they arrive.
             Task printResponses = Task.Run(async () =>
             {
-                while (await streamingCall.ResponseStream.MoveNext(
+                var responseStream = streamingCall.GetResponseStream();
+                while (await responseStream.MoveNextAsync(
                     default(CancellationToken)))
                 {
-                    foreach (var result in streamingCall.ResponseStream
-                        .Current.Results)
+                    foreach (var result in responseStream.Current.Results)
                     {
                         foreach (var alternative in result.Alternatives)
                         {
@@ -616,11 +589,11 @@ namespace GoogleCloudSamples
             // Print responses as they arrive.
             Task printResponses = Task.Run(async () =>
             {
-                while (await streamingCall.ResponseStream.MoveNext(
+                var responseStream = streamingCall.GetResponseStream();
+                while (await responseStream.MoveNextAsync(
                     default(CancellationToken)))
                 {
-                    foreach (var result in streamingCall.ResponseStream
-                        .Current.Results)
+                    foreach (var result in responseStream.Current.Results)
                     {
                         foreach (var alternative in result.Alternatives)
                         {
@@ -696,8 +669,6 @@ namespace GoogleCloudSamples
                 (ListenOptions opts) => StreamingMicRecognizeAsync(opts.Seconds).Result,
                 (ListenInfiniteOptions opts) => InfiniteStreaming.RecognizeAsync().Result,
                 (RecOptions opts) => Rec(opts.FilePath, opts.BitRate, opts.Encoding),
-                (SyncOptionsWithCreds opts) => SyncRecognizeWithCredentials(
-                    opts.FilePath, opts.CredentialsFilePath),
                 (OptionsWithContext opts) => RecognizeWithContext(opts.FilePath, ReadPhrases()),
                 errs => 1);
         }
